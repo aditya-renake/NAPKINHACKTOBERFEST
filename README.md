@@ -1,36 +1,45 @@
 # 📸 Napkin2Code: Physical Sketch to Live Software
-> **Submitted for the Hacktoberfest Hack Day Challenge: *Best Open-Source AI Project***
+### *Best Open-Source AI Project — Hacktoberfest Hack Day*
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![AI Model](https://img.shields.io/badge/Model-Moondream%202%20%7C%20Llama%203.2%20Vision-purple.svg)](https://ollama.com/library/moondream)
-[![Category](https://img.shields.io/badge/Hacktoberfest-Best%20Open--Source%20AI-orange.svg)](https://hacktoberfest.com/)
-[![Standard](https://img.shields.io/badge/Agent%20Skills-Compliant-green.svg)](https://agentskills.io/specification)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-indigo.svg)](https://www.python.org/)
+[![Local AI: Ollama](https://img.shields.io/badge/AI-100%25%20Local%20(Ollama)-emerald.svg)](https://ollama.com/)
+[![Vision Model: Moondream2](https://img.shields.io/badge/Model-Moondream2%20(1.86B)-purple.svg)](https://github.com/vikhyat/moondream)
+[![Zero Cloud APIs](https://img.shields.io/badge/Cloud%20APIs-%240.00%20Zero-green.svg)](#)
 
-Turn rough hand-drawn paper sketches, cafe napkins, and whiteboard wireframes into working, interactive web applications in seconds using **100% local, open-weight vision AI**. Zero cloud APIs, zero subscription fees, and 100% offline privacy.
+> **Tagline:** Turn rough hand-drawn paper sketches and cafe napkins into working, interactive web applications in seconds using 100% local, open-weight vision AI. Zero cloud APIs, zero cost, 100% private.
 
 ---
 
-## 💡 The Core Problem & Our Breakthrough
+## 🌟 1. Overview & Core Innovation
 
 Commercial AI code generators (like Vercel v0, Bolt, or tldraw Make Real) are:
-1. **Closed-Source & Expensive**: Depend on costly proprietary cloud APIs (OpenAI GPT-4o, Anthropic Claude 3.5 Sonnet).
+1. **Expensive and Closed-Source**: Rely on costly proprietary cloud APIs (OpenAI GPT-4o, Anthropic Claude 3.5 Sonnet).
 2. **Cloud-Dependent**: If the venue Wi-Fi drops, they stop working completely.
-3. **Screen-Bound**: They require digital drawing tablets or uploading PNG files.
+3. **Screen-Bound**: They require digital drawing tablets or uploading PNG screenshots.
 
-### The Napkin2Code Solution
+### Our Solution: Napkin2Code
 **Napkin2Code** bridges the **physical world and digital software**:
-- **Physical First**: Grab any real pen and paper on your desk, draw a UI layout, and hold it up to your laptop's **webcam**.
-- **Local Open-Weight AI**: A local Small Vision Model (**Moondream 2 (1.86B)** or **Llama 3.2 Vision (11B)** via **Ollama**) reads the ink strokes and generates responsive HTML with Tailwind CSS.
-- **Physical Red-Pen Iteration**: Draw an arrow with a red pen on the paper (`"+ Add Dark Mode toggle and Star Ratings"`), hold it back up to the webcam, and click **"Apply Red-Pen Edit"**. The AI merges the changes into your active code in real time!
+- **Physical First**: Grab any real pen and paper, a cafe napkin, or a whiteboard in the room. Draw a rough UI layout.
+- **Webcam Capture**: Hold the paper up to your laptop webcam.
+- **Local Open-Weight AI**: A local Small Vision Model (**Moondream 2** [1.86B] or **Llama 3.2 Vision** [11B] via **Ollama**) parses the ink strokes and generates responsive HTML with Tailwind CSS.
+- **Interactive Live App**: A working, clickable application renders in real-time right beside your camera feed.
+
+### 🚀 The "Secret Weapon" Feature: Physical Iterative Editing
+Unlike one-shot generators, **you can iterate with a real pen**:
+1. Draw a basic UI $\rightarrow$ Hold to webcam $\rightarrow$ Live app appears.
+2. Grab your red pen, draw an arrow pointing to a button, and write: `"+ Add Dark Mode toggle and star ratings ⭐"` or cross an element out.
+3. Hold it back up to the webcam and click **"Apply Physical Handwritten Edits"**.
+4. The local AI reads the **current code** + **your handwritten physical annotations** and updates the live website in real time!
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ 2. System Architecture
 
 ```mermaid
 flowchart LR
     A["Real Paper / Napkin Sketch"] -->|Webcam Snapshot| B["Image Preprocessor (Ink Contrast Boost)"]
-    B --> C["Local Vision Engine (Ollama: Moondream / Llama-3.2-Vision)"]
+    B --> C["Local Vision Engine (Ollama: Moondream / Llama 3.2 Vision)"]
     
     subgraph "Stateful Iteration Loop"
         C -->|Initial Sketch| D["HTML + Tailwind CSS Generator"]
@@ -41,95 +50,120 @@ flowchart LR
     end
     
     E --> G["Interactive Live Preview (Clickable iframe)"]
-    E --> H["1-Click Code Export (index.html)"]
+    E --> H["1-Click Code Export (.html)"]
 ```
 
 ---
 
-## 🧠 Open-Weight Models & Licenses
+## 👥 3. Project Structure
 
-In accordance with Hacktoberfest challenge rules, all inference is powered by open-weight models running locally via [Ollama](https://docs.ollama.com/):
-
-| Model Name | Parameter Size | Classification | Terms & License |
-| :--- | :--- | :--- | :--- |
-| **[Moondream 2](https://ollama.com/library/moondream)** | **1.86B parameters** | **Small Language Model ($\le$10B)** | [Apache 2.0 License](https://huggingface.co/vikhyatk/moondream2) |
-| **[Llama 3.2 Vision](https://ollama.com/library/llama3.2-vision)** | **11B parameters** | Large Language Model ($>$10B) | [Llama 3.2 Community License](https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE) |
-| **[LLaVA](https://ollama.com/library/llava)** | **7B parameters** | **Small Language Model ($\le$10B)** | [Apache 2.0 License](https://github.com/haotian-liu/LLaVA/blob/main/LICENSE) |
-
-*Zero proprietary or closed-source cloud APIs (no OpenAI, no Anthropic, no Google Cloud keys) are used.*
+```text
+HackToberFest/
+├── app.py                      # Flagship Streamlit split-screen UI & state manager
+├── requirements.txt            # Python dependencies (Streamlit, Ollama, Pillow, NumPy)
+├── LICENSE                     # Standard MIT License
+├── PROJECT_PLAN.md             # Hack Day division of labor & timeline
+├── core/
+│   ├── __init__.py
+│   └── image_processing.py     # Shadow/lighting normalization, ink enhancement & image encoding
+├── engine/
+│   ├── __init__.py
+│   ├── prompts.py              # Vision model prompt templates (Initial & Iterative)
+│   └── vision_ai.py            # Ollama client, model validation & fallback engine
+├── assets/
+│   ├── generate_samples.py     # Script to generate sample paper sketches
+│   └── samples/
+│       ├── sample_product_card.png          # Base eCommerce sketch
+│       └── sample_product_card_iterated.png # Revised sketch with red pen scribbles
+└── tests/
+    ├── test_image_processing.py # Unittest suite for image pipeline
+    └── test_vision_ai.py        # Unittest suite for HTML sanitizer & prompts
+```
 
 ---
 
-## 📦 Agent Skills Open Standard Compliance
+## ⚡ 4. Quickstart Guide
 
-Napkin2Code is also packaged as an open-source agent skill adhering strictly to the **[Agent Skills Open Standard](https://agentskills.io/specification)**:
-- Specification file: [`skills/napkin2code/SKILL.md`](skills/napkin2code/SKILL.md)
-- Any compatible open-source AI harness can discover and load `napkin2code` as a reusable multimodal skill.
+### 1. Prerequisites
+- Python 3.10+
+- [Ollama](https://ollama.com/) (Free, open-source local inference engine)
 
----
-
-## 🚀 Quickstart Guide
-
-### Prerequisites
-1. **Python 3.10+**
-2. **[Ollama](https://docs.ollama.com/)** installed on your machine.
-
-### Step 1: Install & Start Ollama
+### 2. Install & Start Ollama
 ```bash
-# macOS (via Homebrew)
+# On macOS:
 brew install ollama
-ollama serve
 
-# In a separate terminal, pull the lightweight open-weight vision model (1.8GB):
-ollama pull moondream
+# Start the Ollama server:
+ollama serve
 ```
 
-### Step 2: Clone & Set Up Napkin2Code
+### 3. Pull the Small Vision Model
 ```bash
-git clone https://github.com/<your-username>/Napkin2Code.git
-cd Napkin2Code
+# Ultra-fast, lightweight (1.8GB, runs smoothly on CPU/GPU):
+ollama pull moondream
 
-# Create virtual environment
+# Or for deep reasoning:
+ollama pull llama3.2-vision:11b
+```
+
+### 4. Clone & Run Napkin2Code
+```bash
+git clone https://github.com/aditya-renake/NAPKINHACKTOBERFEST.git
+cd NAPKINHACKTOBERFEST
+
+# Create virtual environment & install dependencies
 python3 -m venv venv
 source venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
-```
 
-### Step 3: Launch the Application
-```bash
+# Run the app
 streamlit run app.py
 ```
+
 Open your browser at `http://localhost:8501`.
 
 ---
 
-## 🎬 How to Run the 2-Minute Demo for Judges
+## 🧪 5. Testing & Verification
 
-1. **Snap or Load Sketch**:
-   - Hold a hand-drawn sketch up to your webcam, or click **"📄 Sample Napkin"** in the sidebar.
-2. **Generate Live App**:
-   - Click **"🚀 Generate Live App"**. Within seconds, a fully interactive, styled web app renders in the right panel.
-3. **Physical Red-Pen Iteration**:
-   - Draw an arrow on the paper with a pen (or click **"🖊️ Red-Pen Edit"** in the sidebar).
-   - Click **"🖊️ Apply Red-Pen Edit"**.
-   - Watch the live preview update with the dark mode switch, flash sale badge, and star ratings!
-4. **Export**:
-   - Click **"⬇️ Download index.html"** to export a clean, standalone website.
+Run the test suite:
+```bash
+python -m unittest discover tests
+```
 
 ---
 
-## 👥 Team & Roles
+## 🧠 6. Open-Weight Model Citations & Compliance
 
-| Member | Focus Area | Core Contributions |
-| :--- | :--- | :--- |
-| **Member 1** | **AI Vision Engine** | Ollama integration, multimodal prompt engineering, code extraction & error recovery. |
-| **Member 2** | **Image Preprocessor** | Webcam integration, contrast & sharpness enhancement algorithms, synthetic demo generators. |
-| **Member 3** | **UI/UX & Documentation** | Split-screen Streamlit dashboard, iframe live rendering, Agent Skills spec, README. |
+Napkin2Code is strictly compliant with open-source and hackathon guidelines:
+- **Moondream 2**: Developed by Vikhyat. 1.86B parameters. Released under the permissive **Apache 2.0 License**. [Model Card](https://github.com/vikhyat/moondream)
+- **Llama 3.2 Vision**: Developed by Meta AI. Released under the **Llama 3.2 Community License**. [Model Details](https://ai.meta.com/llama/)
+- **Ollama Engine**: 100% open-source local LLM runner released under the **MIT License**. [Ollama GitHub](https://github.com/ollama/ollama)
+- **Zero Proprietary Cloud APIs**: No OpenAI, Anthropic, or proprietary cloud endpoints are required or used.
 
 ---
 
-## 📄 License
+## 🎤 7. The 2-Minute Demo Script for Judges
 
-This project is licensed under the **[MIT License](LICENSE)** — free and open for the open-source community.
+1. **The Hook (15 seconds)**:  
+   *"Judges, tools like Vercel v0 and OpenAI charge $20/month and require constant internet connection to turn digital mockups into code. We asked: Why can't a developer or student sketch on a real coffee napkin with zero Wi-Fi and watch it turn into real software on their laptop for free?"*
+
+2. **The First Live Action (30 seconds)**:  
+   *(Hold up a piece of paper with a hand-drawn product card: title, image placeholder, and 'Buy Now' button)*  
+   *"Watch this: We hold this rough sketch to our laptop webcam. Click 'Compile Sketch'."*  
+   *(In seconds, the live interactive website pops up on screen with working buttons, counters, and Tailwind CSS)*
+
+3. **The 'Mind-Blowing' Iteration Moment (45 seconds)**:  
+   *(Pick up a red marker pen live in front of the judges)*  
+   *"Now, what if the client wants changes? Instead of retyping code, watch me draw a physical arrow pointing to the button and write: '+ Add Dark Mode toggle and 20% OFF Sale badge'."*  
+   *(Hold paper back up to webcam $\rightarrow$ Click 'Merge Physical Handwritten Edits')*  
+   *(The live app refreshes with a working dark mode toggle and sale badge!)*
+
+4. **The Open-Source Impact (30 seconds)**:  
+   *"This runs on 100% open-weight AI (Moondream 2 / Llama 3.2 Vision) using Ollama on our local machine. It uses zero cloud APIs, costs $0, preserves 100% privacy, and works completely offline. The code is public under the MIT license."*
+
+---
+
+## 📜 8. License
+
+This project is licensed under the [MIT License](LICENSE).

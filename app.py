@@ -1,303 +1,372 @@
-"""Napkin2Code: Physical Sketch to Live Software.
-
-Main Streamlit Application.
-Hacktoberfest 'Best Open-Source AI Project' Submission.
+"""
+📸 Napkin2Code: Physical Sketch to Live Software
+Hacktoberfest Hack Day Project
+Turn hand-drawn paper sketches into working, interactive web applications in seconds
+using 100% local, open-weight vision AI.
 """
 
 import os
+import io
+import time
+from PIL import Image
 import streamlit as st
 import streamlit.components.v1 as components
-from PIL import Image
 
-from core.image_processor import enhance_sketch
-from engine.vision_engine import (
-    generate_code_from_sketch,
+from core.image_processing import (
+    enhance_sketch,
+    image_to_bytes,
+    load_image_from_bytes,
+)
+from engine.vision_ai import (
     check_ollama_status,
-    SUPPORTED_MODELS,
-    DEFAULT_OLLAMA_HOST,
+    generate_code_from_sketch,
+    iterate_code_from_sketch,
+    get_fallback_html,
+    DEFAULT_VISION_MODELS,
 )
 
 # Page configuration
 st.set_page_config(
-    page_title="Napkin2Code | Physical Sketch to Live App",
+    page_title="Napkin2Code — Physical Sketch to Live Software",
     page_icon="📸",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # Custom Styling
-st.markdown(
-    """
-    <style>
+st.markdown("""
+<style>
     .main-header {
-        font-size: 2.2rem;
-        font-weight: 800;
-        background: linear-gradient(90deg, #2563EB 0%, #7C3AED 50%, #DB2777 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.2rem;
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #0f172a 100%);
+        border-radius: 16px;
+        padding: 24px 28px;
+        margin-bottom: 24px;
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
     }
-    .sub-header {
-        color: #64748B;
-        font-size: 1rem;
-        font-weight: 500;
-        margin-bottom: 1.2rem;
-    }
-    .badge {
+    .badge-pill {
         display: inline-block;
-        padding: 0.25rem 0.6rem;
+        padding: 4px 12px;
+        font-size: 11px;
+        font-weight: 600;
         border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        margin-right: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
-    .badge-green { background-color: #DEF7EC; color: #03543F; }
-    .badge-amber { background-color: #FEF3C7; color: #92400E; }
-    .badge-blue  { background-color: #E1EFFE; color: #1E429F; }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
+    .badge-local {
+        background-color: rgba(16, 185, 129, 0.2);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .badge-open {
+        background-color: rgba(99, 102, 241, 0.2);
+        color: #818cf8;
+        border: 1px solid rgba(99, 102, 241, 0.4);
+    }
+    .badge-hack {
+        background-color: rgba(245, 158, 11, 0.2);
+        color: #fbbf24;
+        border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+    .stButton>button {
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    .action-btn-primary button {
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
+        color: white !important;
+        border: none !important;
+        padding: 12px 24px !important;
+        font-size: 16px !important;
+        box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.4) !important;
+    }
+    .action-btn-primary button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px 0 rgba(79, 70, 229, 0.6) !important;
+    }
+    .action-btn-secondary button {
+        background: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%) !important;
+        color: white !important;
+        border: none !important;
+        padding: 12px 24px !important;
+        font-size: 16px !important;
+        box-shadow: 0 4px 14px 0 rgba(225, 29, 72, 0.4) !important;
+    }
+    .action-btn-secondary button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px 0 rgba(225, 29, 72, 0.6) !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# Session State Initialization
+# Initialize Session State
 if "current_html" not in st.session_state:
     st.session_state.current_html = ""
-if "active_image" not in st.session_state:
-    st.session_state.active_image = None
-if "iteration_count" not in st.session_state:
-    st.session_state.iteration_count = 0
-if "last_status_msg" not in st.session_state:
-    st.session_state.last_status_msg = ""
-if "generation_log" not in st.session_state:
-    st.session_state.generation_log = []
+if "iteration_history" not in st.session_state:
+    st.session_state.iteration_history = []
+if "last_action_meta" not in st.session_state:
+    st.session_state.last_action_meta = None
+if "selected_sample" not in st.session_state:
+    st.session_state.selected_sample = None
 
-# Sidebar Controls
+# Top Header
+st.markdown("""
+<div class="main-header">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div>
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em;">
+                📸 Napkin2Code <span style="font-size: 18px; font-weight: 400; color: #a5b4fc;">— Physical Sketch to Live Software</span>
+            </h1>
+            <p style="color: #cbd5e1; margin: 6px 0 0 0; font-size: 14px;">
+                Hold real paper or a coffee napkin up to your webcam. Turn ink strokes into working, clickable Tailwind CSS apps via 100% local vision AI.
+            </p>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <span class="badge-pill badge-local">🔒 100% Offline & Private</span>
+            <span class="badge-pill badge-open">🧠 Open-Weight Vision</span>
+            <span class="badge-pill badge-hack">🎃 Hacktoberfest Hack Day</span>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Sidebar Configuration
 with st.sidebar:
-    st.image(
-        "https://raw.githubusercontent.com/feathericons/feather/master/icons/camera.svg",
-        width=40,
-    )
-    st.markdown("### ⚙️ System Settings")
+    st.header("⚙️ Local Vision AI Engine")
 
-    # Check Ollama daemon status
-    is_ollama_up, available_models = check_ollama_status()
-    if is_ollama_up:
-        st.markdown(
-            '<span class="badge badge-green">🟢 Ollama Connected</span>',
-            unsafe_allow_html=True,
-        )
-        model_choices = available_models if available_models else SUPPORTED_MODELS
+    # Ollama Connection Status
+    ollama_status = check_ollama_status()
+    if ollama_status["online"]:
+        st.success(f"🟢 **Ollama Connected** (`localhost:11434`)")
+        available_models = ollama_status.get("models", [])
+        if available_models:
+            model_options = available_models
+        else:
+            model_options = DEFAULT_VISION_MODELS
     else:
-        st.markdown(
-            '<span class="badge badge-amber">🟡 Offline Demo Mode</span>',
-            unsafe_allow_html=True,
-        )
-        model_choices = SUPPORTED_MODELS
+        st.warning(f"🟡 **Ollama Offline** (Mock Demo Fallback Active)")
+        model_options = DEFAULT_VISION_MODELS
 
     selected_model = st.selectbox(
         "Vision Model",
-        options=model_choices,
+        options=model_options,
         index=0,
-        help="Local open-weight vision model loaded in Ollama.",
+        help="Moondream (1.86B) runs ultra-fast on any CPU/GPU. Llama 3.2 Vision (11B) provides deeper layout comprehension."
     )
 
-    st.markdown("---")
-    st.markdown("### 🎨 Image Preprocessor")
-    contrast_val = st.slider(
-        "Ink Contrast Boost", 1.0, 3.0, 1.8, 0.1, help="Enhances pen lines on paper"
-    )
-    sharpness_val = st.slider(
-        "Line Sharpness", 1.0, 3.0, 2.0, 0.1, help="Sharpens ink strokes"
-    )
-    auto_contrast_toggle = st.checkbox("Auto-level Background", value=True)
+    if not ollama_status["online"]:
+        st.caption("💡 Run `ollama serve` and `ollama pull moondream` in your terminal to enable live local AI.")
 
-    st.markdown("---")
-    st.markdown("### 🧪 Instant Demo Sketches")
-    st.caption("Don't have paper ready? Test with these sample sketches:")
+    st.divider()
 
-    col_demo1, col_demo2 = st.columns(2)
-    with col_demo1:
-        if st.button("📄 Sample Napkin", use_container_width=True):
-            sample_path = "demo_assets/sample_napkin.png"
-            if os.path.exists(sample_path):
-                st.session_state.active_image = Image.open(sample_path)
-                st.success("Loaded napkin sketch!")
-    with col_demo2:
-        if st.button("🖊️ Red-Pen Edit", use_container_width=True):
-            annotated_path = "demo_assets/sample_annotated_napkin.png"
-            if os.path.exists(annotated_path):
-                st.session_state.active_image = Image.open(annotated_path)
-                st.success("Loaded red-pen sketch!")
+    st.header("🎨 Ink Stroke Preprocessing")
+    enable_enhancement = st.toggle("Ink Contrast Booster", value=True, help="Removes paper shadows and enhances ballpoint/marker contrast.")
 
-    st.markdown("---")
-    if st.button("🔄 Reset Canvas & Code", use_container_width=True):
-        st.session_state.current_html = ""
-        st.session_state.active_image = None
-        st.session_state.iteration_count = 0
-        st.session_state.generation_log = []
-        st.rerun()
+    if enable_enhancement:
+        contrast = st.slider("Contrast", min_value=1.0, max_value=2.8, value=1.8, step=0.1)
+        sharpness = st.slider("Sharpness", min_value=1.0, max_value=3.5, value=2.0, step=0.1)
+        brightness = st.slider("Paper Whitening", min_value=0.9, max_value=1.3, value=1.05, step=0.05)
+    else:
+        contrast = 1.0
+        sharpness = 1.0
+        brightness = 1.0
 
-    st.markdown("---")
-    st.caption(
-        "**Napkin2Code** • Open-Source License: MIT\n\nBuilt for Hacktoberfest Hack Day"
-    )
+    st.divider()
 
-# Main Header
-st.markdown(
-    '<div class="main-header">📸 Napkin2Code</div>', unsafe_allow_html=True
-)
-st.markdown(
-    '<div class="sub-header">Physical Paper Sketch to Live Software — Powered by Local Open-Weight Vision AI</div>',
-    unsafe_allow_html=True,
-)
+    st.markdown("### 🏆 Hackathon Quicklinks")
+    st.markdown("""
+    - **Models**: [Moondream 2](https://github.com/vikhyat/moondream) (Apache 2.0) | [Llama 3.2 Vision](https://ai.meta.com/llama/)
+    - **Runtime**: [Ollama Local Server](https://ollama.com/)
+    - **License**: Standard MIT Open Source
+    """)
 
-# Status notification if any
-if st.session_state.last_status_msg:
-    st.info(st.session_state.last_status_msg)
-
-# Layout: Split Screen
+# Main Content: Split Screen
 col_left, col_right = st.columns([1, 1], gap="large")
 
-# LEFT COLUMN: CAMERA & PHYSICAL SKETCH INPUT
+# ----------------- LEFT COLUMN: PHYSICAL INPUT -----------------
 with col_left:
-    st.markdown("### 📝 1. Capture Paper Sketch")
+    st.subheader("📝 Step 1: Capture Paper Sketch")
 
-    input_mode = st.radio(
-        "Input Source:",
-        ["📸 Laptop Webcam", "📁 Upload Photo"],
-        horizontal=True,
-        label_visibility="collapsed",
+    # Mode Selector: Initial vs Iteration
+    mode = st.radio(
+        "Select Workflow Mode:",
+        options=["🚀 Initial Build (Paper -> New App)", "✏️ Physical Iterative Edit (Annotated Sketch -> Code Update)"],
+        index=0 if not st.session_state.current_html else 1,
+        help="Use 'Initial Build' for a new napkin sketch. Use 'Physical Iterative Edit' to upload a revised sketch with red pen scribbles or arrows to modify the live app."
     )
 
-    raw_image = None
-    if input_mode == "📸 Laptop Webcam":
-        camera_snapshot = st.camera_input("Hold paper napkin/sketch up to camera")
-        if camera_snapshot is not None:
-            raw_image = Image.open(camera_snapshot)
-            st.session_state.active_image = raw_image
-    else:
-        uploaded_file = st.file_uploader(
-            "Upload image of paper sketch / whiteboard",
-            type=["png", "jpg", "jpeg", "webp"],
-        )
+    is_iteration = "Physical Iterative Edit" in mode
+
+    if is_iteration and not st.session_state.current_html:
+        st.info("💡 You don't have an active app in memory yet. Generate an Initial Build first or load a sample sketch below!")
+
+    # Input Method Tabs
+    tab_webcam, tab_upload, tab_samples = st.tabs(["📷 Laptop Webcam", "📁 Upload Image", "🎯 Sample Sketches"])
+
+    captured_image = None
+
+    with tab_webcam:
+        st.caption("Hold your paper sketch or napkin steadily up to your camera:")
+        webcam_file = st.camera_input("Take a photo of your sketch", label_visibility="collapsed")
+        if webcam_file is not None:
+            captured_image = load_image_from_bytes(webcam_file.getvalue())
+
+    with tab_upload:
+        st.caption("Drop any photo of a sketch or whiteboard:")
+        uploaded_file = st.file_uploader("Upload sketch", type=["png", "jpg", "jpeg", "webp"], label_visibility="collapsed")
         if uploaded_file is not None:
-            raw_image = Image.open(uploaded_file)
-            st.session_state.active_image = raw_image
+            captured_image = load_image_from_bytes(uploaded_file.getvalue())
 
-    # Display Active Image & Processed View
-    if st.session_state.active_image is not None:
-        processed_image = enhance_sketch(
-            st.session_state.active_image,
-            contrast=contrast_val,
-            sharpness=sharpness_val,
-            auto_contrast=auto_contrast_toggle,
-        )
+    with tab_samples:
+        st.caption("Quickly test with realistic pre-drawn sketches without pen and paper:")
+        sample_col1, sample_col2 = st.columns(2)
+        with sample_col1:
+            if st.button("🛒 Base Product Card Sketch", use_container_width=True):
+                sample_path = "assets/samples/sample_product_card.png"
+                if os.path.exists(sample_path):
+                    st.session_state.selected_sample = sample_path
+        with sample_col2:
+            if st.button("✏️ Annotated Sketch (+ Red Pen)", use_container_width=True):
+                sample_path = "assets/samples/sample_product_card_iterated.png"
+                if os.path.exists(sample_path):
+                    st.session_state.selected_sample = sample_path
 
-        st.image(
-            processed_image,
-            caption="Active Sketch (Ink Enhanced for Vision AI)",
-            use_container_width=True,
+        if st.session_state.selected_sample and os.path.exists(st.session_state.selected_sample):
+            captured_image = Image.open(st.session_state.selected_sample).convert("RGB")
+            st.caption(f"Loaded: `{os.path.basename(st.session_state.selected_sample)}`")
+
+    # Image Preview & Enhancement
+    if captured_image is not None:
+        if enable_enhancement:
+            processed_image = enhance_sketch(
+                captured_image,
+                contrast_factor=contrast,
+                sharpness_factor=sharpness,
+                brightness_factor=brightness,
+            )
+        else:
+            processed_image = captured_image
+
+        preview_expander = st.expander("🖼️ View Captured & Enhanced Sketch", expanded=True)
+        with preview_expander:
+            p_col1, p_col2 = st.columns(2)
+            with p_col1:
+                st.caption("Raw Snapshot")
+                st.image(captured_image, use_container_width=True)
+            with p_col2:
+                st.caption("Enhanced Ink Contrast")
+                st.image(processed_image, use_container_width=True)
+
+        user_guidance = st.text_input(
+            "Optional guidance / extra notes (optional):",
+            placeholder="e.g. 'Use modern dark mode', 'Make the cart button animate on click'",
         )
 
         # Action Buttons
-        btn_col1, btn_col2 = st.columns(2)
-
-        with btn_col1:
-            if st.button(
-                "🚀 Generate Live App",
-                type="primary",
-                use_container_width=True,
-                help="Generates brand new HTML/Tailwind app from sketch",
-            ):
-                with st.spinner("Analyzing sketch with local vision model..."):
-                    html_code, live_used, msg = generate_code_from_sketch(
+        if not is_iteration:
+            st.markdown('<div class="action-btn-primary">', unsafe_allow_html=True)
+            if st.button("⚡ Compile Sketch to Interactive Web App", use_container_width=True):
+                with st.spinner("🧠 Vision AI is analyzing strokes and generating Tailwind CSS..."):
+                    result = generate_code_from_sketch(
                         image=processed_image,
-                        model=selected_model,
-                        existing_html=None,
+                        model_name=selected_model,
+                        user_guidance=user_guidance,
                     )
-                    st.session_state.current_html = html_code
-                    st.session_state.iteration_count = 1
-                    st.session_state.last_status_msg = msg
-                    st.session_state.generation_log.append(
-                        "Iteration 1: Initial web app generated from physical sketch."
-                    )
-                    st.rerun()
+                    if result["success"]:
+                        st.session_state.current_html = result["html"]
+                        st.session_state.last_action_meta = result
+                        st.session_state.iteration_history.append({
+                            "type": "Initial Build",
+                            "model": result["model"],
+                            "elapsed": result["elapsed_seconds"],
+                            "timestamp": time.strftime("%H:%M:%S"),
+                            "mock": result.get("mock", False)
+                        })
+                        st.success(f"🎉 App compiled in {result['elapsed_seconds']}s via {result['model']}!")
+                        st.rerun()
+                    else:
+                        st.error(f"Error: {result.get('error', 'Generation failed')}")
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="action-btn-secondary">', unsafe_allow_html=True)
+            if st.button("✏️ Merge Physical Handwritten Edits into App", use_container_width=True):
+                if not st.session_state.current_html:
+                    st.error("Please generate an initial version first before applying iterative edits.")
+                else:
+                    with st.spinner("🔍 Reading pen scribbles and updating current code in real time..."):
+                        result = iterate_code_from_sketch(
+                            new_annotated_image=processed_image,
+                            current_html=st.session_state.current_html,
+                            user_notes=user_guidance,
+                            model_name=selected_model,
+                        )
+                        if result["success"]:
+                            st.session_state.current_html = result["html"]
+                            st.session_state.last_action_meta = result
+                            st.session_state.iteration_history.append({
+                                "type": "Physical Revision",
+                                "model": result["model"],
+                                "elapsed": result["elapsed_seconds"],
+                                "timestamp": time.strftime("%H:%M:%S"),
+                                "mock": result.get("mock", False)
+                            })
+                            st.success(f"✨ Physical scribbles applied in {result['elapsed_seconds']}s!")
+                            st.rerun()
+                        else:
+                            st.error(f"Error: {result.get('error', 'Iteration failed')}")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        with btn_col2:
-            is_disabled = len(st.session_state.current_html.strip()) == 0
-            if st.button(
-                "🖊️ Apply Red-Pen Edit",
-                type="secondary",
-                disabled=is_disabled,
-                use_container_width=True,
-                help="Updates existing app using your new handwritten annotations",
-            ):
-                with st.spinner("Merging physical annotations into code..."):
-                    html_code, live_used, msg = generate_code_from_sketch(
-                        image=processed_image,
-                        model=selected_model,
-                        existing_html=st.session_state.current_html,
-                    )
-                    st.session_state.current_html = html_code
-                    st.session_state.iteration_count += 1
-                    st.session_state.last_status_msg = msg
-                    st.session_state.generation_log.append(
-                        f"Iteration {st.session_state.iteration_count}: Physical red-pen annotations merged."
-                    )
-                    st.rerun()
-
-    else:
-        st.info(
-            "👆 Snap a photo with your webcam or click **'📄 Sample Napkin'** in the sidebar to try it instantly!"
-        )
-
-
-# RIGHT COLUMN: INTERACTIVE LIVE PREVIEW & CODE
+# ----------------- RIGHT COLUMN: LIVE INTERACTIVE APP -----------------
 with col_right:
-    st.markdown("### 🌐 2. Live Working Application")
+    st.subheader("💻 Step 2: Live Interactive Application")
 
     if st.session_state.current_html:
-        tab_preview, tab_code, tab_log = st.tabs(
-            ["🖥️ Interactive Preview", "💻 Generated HTML", "📜 Iteration Log"]
-        )
+        # Display Action Metadata banner
+        meta = st.session_state.last_action_meta
+        if meta:
+            is_mock = meta.get("mock", False)
+            badge_text = "🟡 Demo Fallback Mode" if is_mock else "🟢 100% Local Inference"
+            st.caption(f"Status: **{badge_text}** | Engine: `{meta.get('model')}` | Latency: `{meta.get('elapsed_seconds')}s`")
+
+        tab_preview, tab_code, tab_history, tab_export = st.tabs([
+            "🌐 Live App (Interactive)",
+            "📄 Source Code (HTML/Tailwind)",
+            "⏱️ Iteration History",
+            "📦 Export & Download"
+        ])
 
         with tab_preview:
-            # Render live interactive iframe with Tailwind CSS
-            components.html(st.session_state.current_html, height=580, scrolling=True)
-
-            col_down, col_refresh = st.columns([2, 1])
-            with col_down:
-                st.download_button(
-                    label="⬇️ Download index.html",
-                    data=st.session_state.current_html,
-                    file_name="index.html",
-                    mime="text/html",
-                    use_container_width=True,
-                )
-            with col_refresh:
-                if st.button("🔄 Refresh", use_container_width=True):
-                    st.rerun()
+            # Render interactive iframe
+            components.html(st.session_state.current_html, height=650, scrolling=True)
 
         with tab_code:
             st.code(st.session_state.current_html, language="html")
 
-        with tab_log:
-            st.markdown(f"**Total Iterations:** `{st.session_state.iteration_count}`")
-            for log_entry in reversed(st.session_state.generation_log):
-                st.markdown(f"- {log_entry}")
+        with tab_history:
+            st.markdown("#### 📜 Revision Log")
+            for idx, item in enumerate(st.session_state.iteration_history, 1):
+                icon = "🚀" if item["type"] == "Initial Build" else "✏️"
+                mode_str = "(Demo Fallback)" if item.get("mock") else "(Local AI)"
+                st.markdown(f"**{idx}. {icon} {item['type']}** — `{item['timestamp']}` | {item['elapsed']}s | `{item['model']}` {mode_str}")
 
+        with tab_export:
+            st.markdown("#### 📥 1-Click Code Export")
+            st.markdown("Download your self-contained single-file HTML application. It requires zero build tools and can be opened in any browser or hosted on GitHub Pages.")
+            st.download_button(
+                label="⬇️ Download index.html",
+                data=st.session_state.current_html,
+                file_name="index.html",
+                mime="text/html",
+                use_container_width=True
+            )
+            if st.button("🗑️ Reset & Start New Napkin Sketch", use_container_width=True):
+                st.session_state.current_html = ""
+                st.session_state.iteration_history = []
+                st.session_state.last_action_meta = None
+                st.session_state.selected_sample = None
+                st.rerun()
     else:
-        # Placeholder view before generation
-        st.markdown(
-            """
-            <div style="border: 2px dashed #CBD5E1; border-radius: 12px; padding: 4rem 2rem; text-align: center; color: #64748B;">
-                <h4 style="color: #475569; margin-bottom: 0.5rem;">Your Live App Will Appear Here</h4>
-                <p style="font-size: 0.9rem;">
-                    1. Hold a paper sketch or napkin up to your webcam.<br>
-                    2. Click <b>'Generate Live App'</b>.<br>
-                    3. Draw red-pen changes on the paper and click <b>'Apply Red-Pen Edit'</b>!
-                </p>
-            </div>
-        """,
-            unsafe_allow_html=True,
-        )
+        # Placeholder empty state
+        st.info("👈 Hold a sketch to your webcam or pick a sample on the left, then click 'Compile Sketch' to view the live interactive app here.")
+        components.html(get_fallback_html("Awaiting physical sketch capture..."), height=650, scrolling=True)
