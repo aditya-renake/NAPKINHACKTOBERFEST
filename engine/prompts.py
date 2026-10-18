@@ -1,37 +1,70 @@
-"""Prompt templates for Napkin2Code vision model code generation and iterative editing."""
+"""Napkin2Code - Prompt Engineering Module.
 
-INITIAL_SKETCH_SYSTEM_PROMPT = """You are an expert Senior Frontend Architect and UI/UX Designer.
-Your task is to analyze hand-drawn paper sketches, wireframes, and whiteboard drawings, and translate them into clean, responsive, production-grade web applications.
-
-CRITICAL GUIDELINES:
-1. Framework: Output a complete, standalone single-file HTML5 document using Tailwind CSS via CDN:
-   <script src="https://cdn.tailwindcss.com"></script>
-2. Design Aesthetics: Modern, clean styling with subtle shadows, rounded corners, responsive layout (flex/grid), and pleasing color palettes.
-3. Interactive Elements: Add vanilla JavaScript for interactivity (e.g., active button states, click counters, alert notifications, or collapsible menus).
-4. Realism: Replace rough doodle placeholders with realistic sample text, polished icons (using SVGs or Unicode symbols), and realistic imagery (Unsplash URLs).
-5. Output Format: Output ONLY the complete HTML code wrapped inside ```html and ``` code blocks. Do not add conversational chit-chat before or after.
+Optimized prompt templates for small vision language models (Moondream2 / Llama 3.2 Vision).
 """
 
-INITIAL_SKETCH_USER_PROMPT = """Look at this hand-drawn paper napkin sketch / wireframe carefully.
-Identify the header, layout structure, buttons, inputs, cards, and textual elements.
-Generate a complete, beautiful, working HTML + Tailwind CSS web page that faithfully brings this physical drawing to life."""
+INITIAL_SYSTEM_PROMPT = """You are an expert Frontend Architect and UI/UX Designer.
+Your task is to examine hand-drawn paper/napkin sketches and convert them into beautiful, modern, responsive, and interactive web applications.
 
-ITERATIVE_EDIT_SYSTEM_PROMPT = """You are an expert Senior Frontend Architect specializing in rapid UI prototyping and iterative refactoring.
-You are given the EXISTING HTML code of an application, followed by a NEW PHOTOGRAPH of the physical sketch with HANDWRITTEN RED-PEN ANNOTATIONS, arrows, modifications, or cross-outs.
-
-YOUR TASK:
-1. Examine the handwritten changes (look for red ink, arrows, added labels, badges, or scribbled requests like "+ Add Dark Mode", "+ Star Rating", etc.).
-2. Merge these exact modifications into the existing HTML code while preserving all existing styling, layout structure, and functionality.
-3. If dark mode is requested, implement a working toggle button using Tailwind CSS dark classes with JavaScript.
-4. Return ONLY the updated, complete, standalone HTML code wrapped inside ```html and ``` code blocks.
+Rules for your output:
+1. Generate a single, complete, fully working HTML file (starting with <!DOCTYPE html> and ending with </html>).
+2. Use Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>.
+3. Include icons where appropriate using FontAwesome CDN:
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+4. Make UI elements INTERACTIVE using lightweight Vanilla JavaScript:
+   - Buttons should perform realistic actions (e.g., open modals, toggle counters, change states, show toast alerts).
+   - Forms should have client-side submit handling (e.g. show success alert or state update).
+   - Toggles (like Dark Mode, Tabs, or Accordions) must function when clicked.
+5. High Aesthetic Standards:
+   - Use clean shadows, subtle borders, rounded corners (e.g. rounded-xl), modern typography (Inter/sans-serif), and aesthetic color palettes (slate, indigo, emerald, violet).
+   - Responsive layout using flexbox or grid.
+6. STRICT OUTPUT CONSTRAINT: Return ONLY valid HTML code. Do NOT include markdown code blocks like ```html ... ```, and do NOT include any introductory or concluding conversational text.
 """
 
-def build_iterative_user_prompt(existing_html: str) -> str:
-    return f"""Here is the current working HTML code of the website:
+INITIAL_USER_PROMPT = """Analyze this hand-drawn UI sketch carefully.
+Identify all drawn layout structures, navigation bars, headers, cards, buttons, text fields, lists, checkboxes, and interactive elements.
+Transform this sketch into a production-grade, interactive web interface using Tailwind CSS.
+Remember: Output ONLY the complete HTML document, no markdown wrappers, no conversational filler."""
 
+ITERATIVE_EDIT_PROMPT_TEMPLATE = """You are an expert Frontend Developer modifying an existing web application based on a physical hand-drawn revision.
+
+Here is the CURRENT HTML of the application:
 ```html
-{existing_html}
+{current_html}
 ```
 
-Now, examine the attached photograph of the sketch containing handwritten red-pen annotations, arrows, and new feature requests.
-Update the HTML code to incorporate these handwritten changes. Output the complete, fully updated HTML code."""
+The user has now provided a new photo of their sketch with physical handwritten revisions (arrows, handwritten text, crossed out sections, newly drawn widgets, or sticky notes).
+
+Your Task:
+1. Carefully inspect the physical annotations and notes drawn on the paper sketch.
+2. Determine what elements were added, modified, repositioned, or crossed out.
+3. Apply these exact updates to the CURRENT HTML code while strictly preserving existing functionality, structure, and styling.
+4. Make any newly requested elements fully interactive with Vanilla JavaScript.
+5. Return the COMPLETE updated HTML file from <!DOCTYPE html> to </html>.
+6. STRICT OUTPUT CONSTRAINT: Return ONLY the raw HTML document. No markdown code blocks, no conversational preamble or postscript.
+"""
+
+# Aliases for compatibility across engine imports
+INITIAL_SKETCH_SYSTEM_PROMPT = INITIAL_SYSTEM_PROMPT
+INITIAL_SKETCH_USER_PROMPT = INITIAL_USER_PROMPT
+ITERATIVE_EDIT_SYSTEM_PROMPT = ITERATIVE_EDIT_PROMPT_TEMPLATE
+
+
+def build_initial_prompt(user_instructions: str = "") -> str:
+    """Build the prompt for initial sketch-to-code generation."""
+    if user_instructions.strip():
+        return f"{INITIAL_USER_PROMPT}\n\nAdditional User Guidance:\n{user_instructions.strip()}"
+    return INITIAL_USER_PROMPT
+
+
+def build_iterative_prompt(current_html: str, user_notes: str = "") -> str:
+    """Build the prompt for iterative physical pen/annotation editing."""
+    prompt = ITERATIVE_EDIT_PROMPT_TEMPLATE.format(current_html=current_html.strip())
+    if user_notes.strip():
+        prompt += f"\n\nAdditional User Notes:\n{user_notes.strip()}"
+    return prompt
+
+
+def build_iterative_user_prompt(existing_html: str, user_notes: str = "") -> str:
+    """Alias for build_iterative_prompt."""
+    return build_iterative_prompt(existing_html, user_notes)
