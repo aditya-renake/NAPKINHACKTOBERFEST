@@ -35,7 +35,7 @@ def _normalize_lighting(image: Image.Image) -> Image.Image:
     correction = paper_level / np.maximum(background, 1.0)
     correction = np.clip(correction, 0.65, 1.5)
     corrected = np.clip(rgb * correction[:, :, np.newaxis], 0, 255).astype(np.uint8)
-    return Image.fromarray(corrected, mode="RGB")
+    return Image.fromarray(corrected)
 
 
 def enhance_sketch(

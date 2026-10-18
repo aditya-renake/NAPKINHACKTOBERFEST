@@ -4,6 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-indigo.svg)](https://www.python.org/)
 [![Local AI: Ollama](https://img.shields.io/badge/AI-100%25%20Local%20(Ollama)-emerald.svg)](https://ollama.com/)
+[![Vision Model: Google Gemma 4](https://img.shields.io/badge/Model-Google%20Gemma%204%20(E2B%2FE4B)-blue.svg)](https://ollama.com/library/gemma4)
 [![Vision Model: Moondream2](https://img.shields.io/badge/Model-Moondream2%20(1.86B)-purple.svg)](https://github.com/vikhyat/moondream)
 [![Zero Cloud APIs](https://img.shields.io/badge/Cloud%20APIs-%240.00%20Zero-green.svg)](#)
 
@@ -22,7 +23,7 @@ Commercial AI code generators (like Vercel v0, Bolt, or tldraw Make Real) are:
 **Napkin2Code** bridges the **physical world and digital software**:
 - **Physical First**: Grab any real pen and paper, a cafe napkin, or a whiteboard in the room. Draw a rough UI layout.
 - **Webcam Capture**: Hold the paper up to your laptop webcam.
-- **Local Open-Weight AI**: A local Small Vision Model (**Moondream 2** [1.86B] or **Llama 3.2 Vision** [11B] via **Ollama**) parses the ink strokes and generates responsive HTML with Tailwind CSS.
+- **Local Open-Weight AI**: Powered by local Small Vision Models (**Google Gemma 4 E2B/E4B**, **Moondream 2**, or **Llama 3.2 Vision** via **Ollama**) to parse ink strokes and generate responsive HTML with Tailwind CSS.
 - **Interactive Live App**: A working, clickable application renders in real-time right beside your camera feed.
 
 ### 🚀 The "Secret Weapon" Feature: Physical Iterative Editing
@@ -99,7 +100,10 @@ ollama serve
 
 ### 3. Pull the Small Vision Model
 ```bash
-# Ultra-fast, lightweight (1.8GB, runs smoothly on CPU/GPU):
+# Google Gemma 4 on-device multimodal model (E2B / 128K context):
+ollama pull gemma4:e2b
+
+# Ultra-fast & lightweight (1.8GB, runs smoothly on any CPU/GPU):
 ollama pull moondream
 
 # Or for deep reasoning:
@@ -136,6 +140,7 @@ python -m unittest discover tests
 ## 🧠 6. Open-Weight Model Citations & Compliance
 
 Napkin2Code is strictly compliant with open-source and hackathon guidelines:
+- **Google Gemma 4**: Developed by Google DeepMind. State-of-the-art open-weight multimodal model supporting text, image, and code with 128K context window. Released under the open **Gemma Terms of Use**. [Model Card](https://ollama.com/library/gemma4)
 - **Moondream 2**: Developed by Vikhyat. 1.86B parameters. Released under the permissive **Apache 2.0 License**. [Model Card](https://github.com/vikhyat/moondream)
 - **Llama 3.2 Vision**: Developed by Meta AI. Released under the **Llama 3.2 Community License**. [Model Details](https://ai.meta.com/llama/)
 - **Ollama Engine**: 100% open-source local LLM runner released under the **MIT License**. [Ollama GitHub](https://github.com/ollama/ollama)

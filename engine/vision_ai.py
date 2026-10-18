@@ -45,6 +45,7 @@ def check_ollama_status(base_url: str = OLLAMA_BASE_URL) -> Dict[str, Any]:
         return {"online": False, "models": [], "message": f"Ollama not running: {str(e)}"}
 
 
+
 def clean_extracted_html(raw_response: str) -> str:
     """Extract and sanitize raw HTML code from LLM output."""
     text = raw_response.strip()
@@ -201,6 +202,42 @@ def get_fallback_html(message: str = "Demo Sketch Output") -> str:
 </html>"""
 
 
+def resolve_vision_model(requested_model: str, available_models: List[str]) -> Tuple[str, bool, Optional[str]]:
+    """
+    Match requested model against available Ollama models.
+    Returns: (model_to_use, is_exact_match, notice_message)
+    """
+    if not available_models:
+        return requested_model, False, None
+
+    # Exact match
+    if requested_model in available_models:
+        return requested_model, True, None
+
+    # Prefix/tag match (e.g. 'moondream' -> 'moondream:latest')
+    for m in available_models:
+        base = m.split(":")[0]
+        if requested_model.lower() == base.lower():
+            return m, True, None
+
+    # Substring match
+    for m in available_models:
+        if requested_model.lower() in m.lower():
+            return m, True, None
+
+    # Fallback to an available vision model in Ollama if requested model is not downloaded
+    preferred = ["gemma4", "moondream", "llama3.2-vision", "llava", "qwen"]
+    for pref in preferred:
+        for m in available_models:
+            if pref in m.lower():
+                notice = f"Model '{requested_model}' not found in Ollama. Using installed '{m}'."
+                return m, False, notice
+
+    # Fallback to first available model
+    notice = f"Model '{requested_model}' not found in Ollama. Using installed '{available_models[0]}'."
+    return available_models[0], False, notice
+
+
 def generate_code_from_sketch(
     image: Image.Image,
     model_name: str = "moondream",
@@ -218,6 +255,8 @@ def generate_code_from_sketch(
 
     # Check if Ollama is accessible
     status = check_ollama_status(base_url)
+    available_models = status.get("models", [])
+
     if not status["online"] and mock_fallback:
         elapsed = time.time() - start_time
         return {
@@ -229,10 +268,12 @@ def generate_code_from_sketch(
             "message": "Generated using Demo Mode (Ollama offline). Start Ollama for real vision inference."
         }
 
+    actual_model, is_exact, notice = resolve_vision_model(model_name, available_models)
+
     try:
         client = ollama.Client(host=base_url)
         response = client.chat(
-            model=model_name,
+            model=actual_model,
             messages=[
                 {"role": "system", "content": INITIAL_SYSTEM_PROMPT},
                 {
@@ -247,33 +288,44 @@ def generate_code_from_sketch(
         cleaned_html = clean_extracted_html(raw_text)
         elapsed = time.time() - start_time
 
+        display_model = actual_model if is_exact else f"{actual_model} (auto-fallback from {model_name})"
+        msg = "HTML successfully compiled from sketch!"
+        if notice:
+            msg = f"{notice} HTML compiled!"
+
         return {
             "success": True,
             "mock": False,
             "html": cleaned_html,
             "raw_text": raw_text,
-            "model": model_name,
+            "model": display_model,
             "elapsed_seconds": round(elapsed, 2),
-            "message": "HTML successfully compiled from sketch!"
+            "message": msg
         }
     except Exception as e:
         elapsed = time.time() - start_time
+        err_msg = str(e)
+        if "not found" in err_msg.lower() or "404" in err_msg:
+            hint = f"Model '{actual_model}' not found in Ollama. Run: `ollama pull {actual_model}`"
+        else:
+            hint = err_msg
+
         if mock_fallback:
             return {
                 "success": True,
                 "mock": True,
-                "html": get_fallback_html(f"Fallback active: {str(e)}"),
+                "html": get_fallback_html(f"Fallback active: {hint}"),
                 "model": f"{model_name} (Fallback)",
                 "elapsed_seconds": round(elapsed, 2),
-                "message": f"Ollama error: {str(e)}. Rendered fallback preview."
+                "message": f"Ollama error: {hint}. Rendered fallback preview."
             }
         return {
             "success": False,
             "mock": False,
             "html": "",
-            "error": str(e),
+            "error": hint,
             "elapsed_seconds": round(elapsed, 2),
-            "message": f"Vision AI failed: {str(e)}"
+            "message": f"Vision AI failed: {hint}"
         }
 
 
@@ -293,6 +345,8 @@ def iterate_code_from_sketch(
     prompt = build_iterative_prompt(current_html=current_html, user_notes=user_notes)
 
     status = check_ollama_status(base_url)
+    available_models = status.get("models", [])
+
     if not status["online"] and mock_fallback:
         elapsed = time.time() - start_time
         # Mock modification: add a dark mode badge & reviews into current HTML
@@ -316,10 +370,12 @@ def iterate_code_from_sketch(
             "message": "Physical scribbles applied via Demo Mode! (Ollama offline)"
         }
 
+    actual_model, is_exact, notice = resolve_vision_model(model_name, available_models)
+
     try:
         client = ollama.Client(host=base_url)
         response = client.chat(
-            model=model_name,
+            model=actual_model,
             messages=[
                 {"role": "system", "content": INITIAL_SYSTEM_PROMPT},
                 {
@@ -334,17 +390,28 @@ def iterate_code_from_sketch(
         cleaned_html = clean_extracted_html(raw_text)
         elapsed = time.time() - start_time
 
+        display_model = actual_model if is_exact else f"{actual_model} (auto-fallback from {model_name})"
+        msg = "Physical handwritten revisions successfully merged into code!"
+        if notice:
+            msg = f"{notice} Revisions merged!"
+
         return {
             "success": True,
             "mock": False,
             "html": cleaned_html,
             "raw_text": raw_text,
-            "model": model_name,
+            "model": display_model,
             "elapsed_seconds": round(elapsed, 2),
-            "message": "Physical handwritten revisions successfully merged into code!"
+            "message": msg
         }
     except Exception as e:
         elapsed = time.time() - start_time
+        err_msg = str(e)
+        if "not found" in err_msg.lower() or "404" in err_msg:
+            hint = f"Model '{actual_model}' not found in Ollama. Run: `ollama pull {actual_model}`"
+        else:
+            hint = err_msg
+
         if mock_fallback:
             return {
                 "success": True,
@@ -352,13 +419,13 @@ def iterate_code_from_sketch(
                 "html": current_html,
                 "model": f"{model_name} (Fallback)",
                 "elapsed_seconds": round(elapsed, 2),
-                "message": f"Ollama error: {str(e)}"
+                "message": f"Ollama error: {hint}"
             }
         return {
             "success": False,
             "mock": False,
             "html": "",
-            "error": str(e),
+            "error": hint,
             "elapsed_seconds": round(elapsed, 2),
-            "message": f"Iterative edit failed: {str(e)}"
+            "message": f"Iterative edit failed: {hint}"
         }

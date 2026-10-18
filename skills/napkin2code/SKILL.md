@@ -6,6 +6,8 @@ author: Napkin2Code Team
 license: MIT
 metadata:
   model_compatibility:
+    - gemma4:e2b
+    - gemma4:e4b
     - moondream
     - llama3.2-vision:11b
     - qwen2-vl:7b

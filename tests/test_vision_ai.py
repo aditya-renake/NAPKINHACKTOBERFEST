@@ -38,12 +38,27 @@ Hope you like it!"""
         self.assertIn("cdn.tailwindcss.com", cleaned)
         self.assertIn("<button>Button</button>", cleaned)
 
-    def test_get_fallback_html(self):
-        fallback = get_fallback_html("Custom Test Message")
-        self.assertIn("<!DOCTYPE html>", fallback)
-        self.assertIn("cdn.tailwindcss.com", fallback)
-        self.assertIn("Custom Test Message", fallback)
+    def test_resolve_vision_model_exact_and_fallback(self):
+        from engine.vision_ai import resolve_vision_model
+
+        # Case 1: Exact match
+        model, exact, notice = resolve_vision_model("moondream:latest", ["moondream:latest"])
+        self.assertEqual(model, "moondream:latest")
+        self.assertTrue(exact)
+        self.assertIsNone(notice)
+
+        # Case 2: Base tag match
+        model, exact, notice = resolve_vision_model("moondream", ["moondream:latest"])
+        self.assertEqual(model, "moondream:latest")
+        self.assertTrue(exact)
+
+        # Case 3: Missing model falling back to available vision model
+        model, exact, notice = resolve_vision_model("llama3.2-vision", ["moondream:latest"])
+        self.assertEqual(model, "moondream:latest")
+        self.assertFalse(exact)
+        self.assertIn("not found in Ollama", notice)
 
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -140,10 +140,9 @@ with st.sidebar:
     if ollama_status["online"]:
         st.success(f"🟢 **Ollama Connected** (`localhost:11434`)")
         available_models = ollama_status.get("models", [])
-        if available_models:
-            model_options = available_models
-        else:
-            model_options = DEFAULT_VISION_MODELS
+        # Combine downloaded models with known supported models
+        combined_models = list(dict.fromkeys(available_models + DEFAULT_VISION_MODELS))
+        model_options = combined_models
     else:
         st.warning(f"🟡 **Ollama Offline** (Mock Demo Fallback Active)")
         model_options = DEFAULT_VISION_MODELS
@@ -152,11 +151,15 @@ with st.sidebar:
         "Vision Model",
         options=model_options,
         index=0,
-        help="Moondream (1.86B) runs ultra-fast on any CPU/GPU. Llama 3.2 Vision (11B) provides deeper layout comprehension."
+        help="Google Gemma 4 (E2B/E4B) provides frontier multimodal understanding. Moondream (1.86B) runs ultra-fast."
     )
 
-    if not ollama_status["online"]:
-        st.caption("💡 Run `ollama serve` and `ollama pull moondream` in your terminal to enable live local AI.")
+    if any("gemma4" in m for m in ollama_status.get("models", [])):
+        st.caption("✨ **Google Gemma 4 Vision Engine Active**")
+    elif ollama_status["online"]:
+        st.caption("💡 Tip: Pull Gemma 4 with `ollama pull gemma4:e2b` for state-of-the-art vision reasoning.")
+    else:
+        st.caption("💡 Run `ollama serve` and `ollama pull gemma4:e2b` in your terminal to enable live local AI.")
 
     st.divider()
 
@@ -176,7 +179,7 @@ with st.sidebar:
 
     st.markdown("### 🏆 Hackathon Quicklinks")
     st.markdown("""
-    - **Models**: [Moondream 2](https://github.com/vikhyat/moondream) (Apache 2.0) | [Llama 3.2 Vision](https://ai.meta.com/llama/)
+    - **Models**: [Gemma 4](https://ollama.com/library/gemma4) (Google) | [Moondream 2](https://github.com/vikhyat/moondream) | [Llama 3.2 Vision](https://ai.meta.com/llama/)
     - **Runtime**: [Ollama Local Server](https://ollama.com/)
     - **License**: Standard MIT Open Source
     """)
