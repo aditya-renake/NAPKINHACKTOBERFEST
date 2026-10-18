@@ -1,5 +1,5 @@
 # 📸 Napkin2Code: Physical Sketch to Live Software
-### *Best Open-Source AI Project — Hacktoberfest Hack Day*
+### *MLH Open Source AI Hackathon — Hacktoberfest Hack Day, Pune*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-indigo.svg)](https://www.python.org/)
@@ -137,18 +137,31 @@ python -m unittest discover tests
 
 ---
 
-## 🧠 6. Open-Weight Model Citations & Compliance
+## 🧠 6. Open-Weight Model Citations & Architecture
 
 Napkin2Code is strictly compliant with open-source and hackathon guidelines:
-- **Google Gemma 4**: Developed by Google DeepMind. State-of-the-art open-weight multimodal model supporting text, image, and code with 128K context window. Released under the open **Gemma Terms of Use**. [Model Card](https://ollama.com/library/gemma4)
-- **Moondream 2**: Developed by Vikhyat. 1.86B parameters. Released under the permissive **Apache 2.0 License**. [Model Card](https://github.com/vikhyat/moondream)
-- **Llama 3.2 Vision**: Developed by Meta AI. Released under the **Llama 3.2 Community License**. [Model Details](https://ai.meta.com/llama/)
-- **Ollama Engine**: 100% open-source local LLM runner released under the **MIT License**. [Ollama GitHub](https://github.com/ollama/ollama)
+
+| Pipeline Stage | Model | License | Description |
+|---|---|---|---|
+| **Vision (Direct / Multimodal)** | `gemma4:e2b` / `gemma4:e4b` | Gemma Terms of Use | Google DeepMind frontier on-device multimodal model (128K context) |
+| **Vision (Lightweight Fast)** | `moondream2` (1.86B) | Apache 2.0 | Ultra-fast Small Vision Model running smoothly on any CPU/GPU |
+| **Vision (Deep Reasoning)** | `llama3.2-vision:11b` | Llama 3.2 Community | High-accuracy layout and fine handwriting recognition |
+| **Two-Stage Coder Engine** | `qwen2.5-coder:7b` | Apache 2.0 | Specialized code synthesis model converting UI JSON specs into HTML5/Tailwind |
+| **Local Inference Server** | `ollama` | MIT License | 100% open-source local LLM/VLM runner (`localhost:11434`) |
+
 - **Zero Proprietary Cloud APIs**: No OpenAI, Anthropic, or proprietary cloud endpoints are required or used.
 
 ---
 
-## 🎤 7. The 2-Minute Demo Script for Judges
+## 🏗️ 7. Project Structure & Architecture
+
+For detailed development specs, prompt strategies, and pipeline architecture:
+- See [`PROJECT_PLAN.md`](PROJECT_PLAN.md) and [`PLAN.md`](PLAN.md).
+- See Agent Skill standard definition in [`skills/napkin2code/SKILL.md`](skills/napkin2code/SKILL.md).
+
+---
+
+## 🎤 8. The 2-Minute Demo Script for Judges
 
 1. **The Hook (15 seconds)**:  
    *"Judges, tools like Vercel v0 and OpenAI charge $20/month and require constant internet connection to turn digital mockups into code. We asked: Why can't a developer or student sketch on a real coffee napkin with zero Wi-Fi and watch it turn into real software on their laptop for free?"*
@@ -165,10 +178,11 @@ Napkin2Code is strictly compliant with open-source and hackathon guidelines:
    *(The live app refreshes with a working dark mode toggle and sale badge!)*
 
 4. **The Open-Source Impact (30 seconds)**:  
-   *"This runs on 100% open-weight AI (Moondream 2 / Llama 3.2 Vision) using Ollama on our local machine. It uses zero cloud APIs, costs $0, preserves 100% privacy, and works completely offline. The code is public under the MIT license."*
+   *"This runs on 100% open-weight AI (Google Gemma 4 / Moondream 2 / Qwen 2.5 Coder) using Ollama on our local machine. It uses zero cloud APIs, costs $0, preserves 100% privacy, and works completely offline. The code is public under the MIT license."*
 
 ---
 
-## 📜 8. License
+## 📜 9. License
 
 This project is licensed under the [MIT License](LICENSE).
+

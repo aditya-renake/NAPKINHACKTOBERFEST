@@ -1,9 +1,10 @@
 """
 Napkin2Code - Vision AI Engine
-Communicates with Ollama local vision models (Moondream, Llama 3.2 Vision),
+Communicates with Ollama local vision models (Gemma 4, Moondream, Llama 3.2 Vision),
 handles image inputs, parses output code, and provides a mock/demo fallback.
 """
 
+import json
 import re
 import time
 import requests
@@ -432,3 +433,60 @@ def iterate_code_from_sketch(
             "elapsed_seconds": round(elapsed, 2),
             "message": f"Iterative edit failed: {hint}"
         }
+
+
+# --- Multi-Stage Pipeline Helpers (Spec & Annotation Extraction) ---
+
+def _clean_json_str(text: str) -> str:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+    return cleaned
+
+
+def sketch_to_spec(image_bytes: bytes) -> dict:
+    """Return the UI spec dict. Raise RuntimeError on failure or invalid JSON."""
+    try:
+        import config
+        from engine import prompts
+        vision_model = getattr(config, "VISION_MODEL", "moondream")
+        temperature = getattr(config, "TEMPERATURE", 0.2)
+        resp = ollama.chat(
+            model=vision_model,
+            messages=[{"role": "user", "content": prompts.SPEC_PROMPT, "images": [image_bytes]}],
+            format="json",
+            options={"temperature": temperature},
+        )
+        content = resp["message"]["content"]
+        spec = json.loads(_clean_json_str(content))
+        if not isinstance(spec, dict):
+            raise ValueError("Expected JSON object for spec")
+        return spec
+    except Exception as e:
+        raise RuntimeError(f"Failed to generate UI spec from sketch: {e}") from e
+
+
+def extract_annotations(image_bytes: bytes) -> str:
+    """Return handwritten edit instructions as text, or '' if NONE."""
+    try:
+        import config
+        from engine import prompts
+        vision_model = getattr(config, "VISION_MODEL", "moondream")
+        temperature = getattr(config, "TEMPERATURE", 0.2)
+        resp = ollama.chat(
+            model=vision_model,
+            messages=[{"role": "user", "content": prompts.ANNOTATION_PROMPT, "images": [image_bytes]}],
+            options={"temperature": temperature},
+        )
+        content = resp["message"]["content"].strip()
+        if content.upper() == "NONE" or not content:
+            return ""
+        return content
+    except Exception as e:
+        raise RuntimeError(f"Failed to extract annotations from sketch: {e}") from e
+

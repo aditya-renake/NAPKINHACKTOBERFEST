@@ -93,3 +93,19 @@ def load_image_from_bytes(data: bytes) -> Image.Image:
     """Load a PIL Image from raw bytes."""
     with Image.open(io.BytesIO(data)) as image:
         return _to_rgb(image)
+
+
+def enhance(image_bytes: bytes) -> bytes:
+    """Enhance sketch photo: autocontrast, contrast, sharpness, and resize."""
+    image = load_image_from_bytes(image_bytes)
+    image = enhance_sketch(image)
+
+    max_side = 1024
+    try:
+        import config
+        max_side = getattr(config, "MAX_IMAGE_SIDE", 1024)
+    except Exception:
+        pass
+
+    image.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
+    return image_to_bytes(image)

@@ -8,14 +8,17 @@ using 100% local, open-weight vision AI.
 import os
 import io
 import time
+import json
 from PIL import Image
 import streamlit as st
 import streamlit.components.v1 as components
 
+import config
 from core.image_processing import (
     enhance_sketch,
     image_to_bytes,
     load_image_from_bytes,
+    enhance,
 )
 from engine.vision_ai import (
     check_ollama_status,
@@ -23,6 +26,12 @@ from engine.vision_ai import (
     iterate_code_from_sketch,
     get_fallback_html,
     DEFAULT_VISION_MODELS,
+    sketch_to_spec,
+    extract_annotations,
+)
+from engine.codegen import (
+    spec_to_html,
+    edit_html,
 )
 
 # Page configuration
@@ -103,12 +112,16 @@ st.markdown("""
 # Initialize Session State
 if "current_html" not in st.session_state:
     st.session_state.current_html = ""
+if "spec" not in st.session_state:
+    st.session_state.spec = {}
 if "iteration_history" not in st.session_state:
     st.session_state.iteration_history = []
 if "last_action_meta" not in st.session_state:
     st.session_state.last_action_meta = None
 if "selected_sample" not in st.session_state:
     st.session_state.selected_sample = None
+if "last_error" not in st.session_state:
+    st.session_state.last_error = ""
 
 # Top Header
 st.markdown("""
@@ -140,7 +153,6 @@ with st.sidebar:
     if ollama_status["online"]:
         st.success(f"🟢 **Ollama Connected** (`localhost:11434`)")
         available_models = ollama_status.get("models", [])
-        # Combine downloaded models with known supported models
         combined_models = list(dict.fromkeys(available_models + DEFAULT_VISION_MODELS))
         model_options = combined_models
     else:
@@ -152,6 +164,13 @@ with st.sidebar:
         options=model_options,
         index=0,
         help="Google Gemma 4 (E2B/E4B) provides frontier multimodal understanding. Moondream (1.86B) runs ultra-fast."
+    )
+
+    pipeline_mode = st.selectbox(
+        "AI Architecture Mode",
+        options=["⚡ Direct Multimodal Vision (Fast)", "🔬 Two-Stage Pipeline (Vision Spec -> Coder)"],
+        index=0,
+        help="Direct Mode generates HTML in one unified pass. Two-Stage extracts intermediate JSON UI spec, then invokes code LLM."
     )
 
     if any("gemma4" in m for m in ollama_status.get("models", [])):
@@ -177,9 +196,20 @@ with st.sidebar:
 
     st.divider()
 
+    st.markdown("### 💡 Sketching Tips")
+    st.markdown(
+        "- Draw clear boxes for buttons, inputs, navigation, and cards.\n"
+        "- Label elements clearly in legible print.\n"
+        "- Use standard layouts (header, sidebar, content area).\n"
+        "- To edit: use arrows, `+` notes, or cross out items."
+    )
+
+    st.divider()
+
     st.markdown("### 🏆 Hackathon Quicklinks")
     st.markdown("""
     - **Models**: [Gemma 4](https://ollama.com/library/gemma4) (Google) | [Moondream 2](https://github.com/vikhyat/moondream) | [Llama 3.2 Vision](https://ai.meta.com/llama/)
+    - **Coder Model**: `qwen2.5-coder` (Alibaba)
     - **Runtime**: [Ollama Local Server](https://ollama.com/)
     - **License**: Standard MIT Open Source
     """)
@@ -223,15 +253,20 @@ with col_left:
 
     with tab_samples:
         st.caption("Quickly test with realistic pre-drawn sketches without pen and paper:")
-        sample_col1, sample_col2 = st.columns(2)
+        sample_col1, sample_col2, sample_col3 = st.columns(3)
         with sample_col1:
-            if st.button("🛒 Base Product Card Sketch", use_container_width=True):
+            if st.button("🛒 Base Card", use_container_width=True):
                 sample_path = "assets/samples/sample_product_card.png"
                 if os.path.exists(sample_path):
                     st.session_state.selected_sample = sample_path
         with sample_col2:
-            if st.button("✏️ Annotated Sketch (+ Red Pen)", use_container_width=True):
+            if st.button("✏️ Red Pen Annotations", use_container_width=True):
                 sample_path = "assets/samples/sample_product_card_iterated.png"
+                if os.path.exists(sample_path):
+                    st.session_state.selected_sample = sample_path
+        with sample_col3:
+            if st.button("📐 Wireframe Sketch", use_container_width=True):
+                sample_path = "samples/sample_wireframe.png"
                 if os.path.exists(sample_path):
                     st.session_state.selected_sample = sample_path
 
@@ -271,25 +306,52 @@ with col_left:
             st.markdown('<div class="action-btn-primary">', unsafe_allow_html=True)
             if st.button("⚡ Compile Sketch to Interactive Web App", use_container_width=True):
                 with st.spinner("🧠 Vision AI is analyzing strokes and generating Tailwind CSS..."):
-                    result = generate_code_from_sketch(
-                        image=processed_image,
-                        model_name=selected_model,
-                        user_guidance=user_guidance,
-                    )
-                    if result["success"]:
-                        st.session_state.current_html = result["html"]
-                        st.session_state.last_action_meta = result
-                        st.session_state.iteration_history.append({
-                            "type": "Initial Build",
-                            "model": result["model"],
-                            "elapsed": result["elapsed_seconds"],
-                            "timestamp": time.strftime("%H:%M:%S"),
-                            "mock": result.get("mock", False)
-                        })
-                        st.success(f"🎉 App compiled in {result['elapsed_seconds']}s via {result['model']}!")
-                        st.rerun()
+                    if "Two-Stage" in pipeline_mode and ollama_status["online"]:
+                        try:
+                            start_time = time.time()
+                            img_bytes = image_to_bytes(processed_image)
+                            spec = sketch_to_spec(img_bytes)
+                            st.session_state.spec = spec
+                            html = spec_to_html(spec)
+                            elapsed = round(time.time() - start_time, 2)
+                            st.session_state.current_html = html
+                            st.session_state.last_action_meta = {
+                                "success": True,
+                                "mock": False,
+                                "model": f"{config.VISION_MODEL} + {config.CODE_MODEL}",
+                                "elapsed_seconds": elapsed,
+                            }
+                            st.session_state.iteration_history.append({
+                                "type": "Two-Stage Build",
+                                "model": f"{config.VISION_MODEL} + {config.CODE_MODEL}",
+                                "elapsed": elapsed,
+                                "timestamp": time.strftime("%H:%M:%S"),
+                                "mock": False,
+                            })
+                            st.success(f"🎉 App compiled in {elapsed}s via Two-Stage Pipeline!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Two-Stage Pipeline Error: {e}")
                     else:
-                        st.error(f"Error: {result.get('error', 'Generation failed')}")
+                        result = generate_code_from_sketch(
+                            image=processed_image,
+                            model_name=selected_model,
+                            user_guidance=user_guidance,
+                        )
+                        if result["success"]:
+                            st.session_state.current_html = result["html"]
+                            st.session_state.last_action_meta = result
+                            st.session_state.iteration_history.append({
+                                "type": "Initial Build",
+                                "model": result["model"],
+                                "elapsed": result["elapsed_seconds"],
+                                "timestamp": time.strftime("%H:%M:%S"),
+                                "mock": result.get("mock", False)
+                            })
+                            st.success(f"🎉 App compiled in {result['elapsed_seconds']}s via {result['model']}!")
+                            st.rerun()
+                        else:
+                            st.error(f"Error: {result.get('error', 'Generation failed')}")
             st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.markdown('<div class="action-btn-secondary">', unsafe_allow_html=True)
@@ -298,26 +360,56 @@ with col_left:
                     st.error("Please generate an initial version first before applying iterative edits.")
                 else:
                     with st.spinner("🔍 Reading pen scribbles and updating current code in real time..."):
-                        result = iterate_code_from_sketch(
-                            new_annotated_image=processed_image,
-                            current_html=st.session_state.current_html,
-                            user_notes=user_guidance,
-                            model_name=selected_model,
-                        )
-                        if result["success"]:
-                            st.session_state.current_html = result["html"]
-                            st.session_state.last_action_meta = result
-                            st.session_state.iteration_history.append({
-                                "type": "Physical Revision",
-                                "model": result["model"],
-                                "elapsed": result["elapsed_seconds"],
-                                "timestamp": time.strftime("%H:%M:%S"),
-                                "mock": result.get("mock", False)
-                            })
-                            st.success(f"✨ Physical scribbles applied in {result['elapsed_seconds']}s!")
-                            st.rerun()
+                        if "Two-Stage" in pipeline_mode and ollama_status["online"]:
+                            try:
+                                start_time = time.time()
+                                img_bytes = image_to_bytes(processed_image)
+                                notes = extract_annotations(img_bytes)
+                                instruction = notes if notes else user_guidance
+                                if not instruction.strip():
+                                    st.warning("No new annotations detected in image or notes field.")
+                                else:
+                                    updated_html = edit_html(st.session_state.current_html, instruction)
+                                    elapsed = round(time.time() - start_time, 2)
+                                    st.session_state.current_html = updated_html
+                                    st.session_state.last_action_meta = {
+                                        "success": True,
+                                        "mock": False,
+                                        "model": config.CODE_MODEL,
+                                        "elapsed_seconds": elapsed,
+                                    }
+                                    st.session_state.iteration_history.append({
+                                        "type": "Two-Stage Edit",
+                                        "model": config.CODE_MODEL,
+                                        "elapsed": elapsed,
+                                        "timestamp": time.strftime("%H:%M:%S"),
+                                        "mock": False,
+                                    })
+                                    st.success(f"✨ Revisions merged in {elapsed}s!")
+                                    st.rerun()
+                            except Exception as e:
+                                st.error(f"Failed to apply edit: {e}")
                         else:
-                            st.error(f"Error: {result.get('error', 'Iteration failed')}")
+                            result = iterate_code_from_sketch(
+                                new_annotated_image=processed_image,
+                                current_html=st.session_state.current_html,
+                                user_notes=user_guidance,
+                                model_name=selected_model,
+                            )
+                            if result["success"]:
+                                st.session_state.current_html = result["html"]
+                                st.session_state.last_action_meta = result
+                                st.session_state.iteration_history.append({
+                                    "type": "Physical Revision",
+                                    "model": result["model"],
+                                    "elapsed": result["elapsed_seconds"],
+                                    "timestamp": time.strftime("%H:%M:%S"),
+                                    "mock": result.get("mock", False)
+                                })
+                                st.success(f"✨ Physical scribbles applied in {result['elapsed_seconds']}s!")
+                                st.rerun()
+                            else:
+                                st.error(f"Error: {result.get('error', 'Iteration failed')}")
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------- RIGHT COLUMN: LIVE INTERACTIVE APP -----------------
@@ -332,9 +424,10 @@ with col_right:
             badge_text = "🟡 Demo Fallback Mode" if is_mock else "🟢 100% Local Inference"
             st.caption(f"Status: **{badge_text}** | Engine: `{meta.get('model')}` | Latency: `{meta.get('elapsed_seconds')}s`")
 
-        tab_preview, tab_code, tab_history, tab_export = st.tabs([
+        tab_preview, tab_code, tab_spec, tab_history, tab_export = st.tabs([
             "🌐 Live App (Interactive)",
             "📄 Source Code (HTML/Tailwind)",
+            "📋 UI Spec (JSON)",
             "⏱️ Iteration History",
             "📦 Export & Download"
         ])
@@ -346,10 +439,16 @@ with col_right:
         with tab_code:
             st.code(st.session_state.current_html, language="html")
 
+        with tab_spec:
+            if st.session_state.get("spec"):
+                st.json(st.session_state["spec"])
+            else:
+                st.info("UI Spec JSON is extracted when using the Two-Stage Architecture Pipeline.")
+
         with tab_history:
             st.markdown("#### 📜 Revision Log")
             for idx, item in enumerate(st.session_state.iteration_history, 1):
-                icon = "🚀" if item["type"] == "Initial Build" else "✏️"
+                icon = "🚀" if "Build" in item["type"] else "✏️"
                 mode_str = "(Demo Fallback)" if item.get("mock") else "(Local AI)"
                 st.markdown(f"**{idx}. {icon} {item['type']}** — `{item['timestamp']}` | {item['elapsed']}s | `{item['model']}` {mode_str}")
 
@@ -365,9 +464,11 @@ with col_right:
             )
             if st.button("🗑️ Reset & Start New Napkin Sketch", use_container_width=True):
                 st.session_state.current_html = ""
+                st.session_state.spec = {}
                 st.session_state.iteration_history = []
                 st.session_state.last_action_meta = None
                 st.session_state.selected_sample = None
+                st.session_state.last_error = ""
                 st.rerun()
     else:
         # Placeholder empty state

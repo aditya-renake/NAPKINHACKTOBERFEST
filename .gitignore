@@ -2,15 +2,19 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 
-# Virtual Environments
+# Environment & Config
+.env
 venv/
 .venv/
 env/
 ENV/
 
-# Streamlit
+# Streamlit & IDEs
 .streamlit/
+.idea/
+.vscode/
 
 # OS generated files
 .DS_Store
@@ -20,3 +24,8 @@ Thumbs.db
 *.tmp
 temp_*.png
 temp_*.jpg
+*.zip
+
+# Output folder
+output/*
+!output/.gitkeep
