@@ -20,6 +20,9 @@ from engine.prompts import (
 
 OLLAMA_BASE_URL = "http://localhost:11434"
 DEFAULT_VISION_MODELS = [
+    "gemma4:e2b",
+    "gemma4:e4b",
+    "gemma4:latest",
     "moondream",
     "llama3.2-vision:11b",
     "llama3.2-vision",
